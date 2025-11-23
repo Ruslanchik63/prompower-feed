@@ -1,0 +1,43 @@
+name: Generate Industrial Market XML Feed # Имя нашего рабочего процесса
+
+on:
+  push:
+    branches:
+      - main # Запускать при пуше в ветку main (для отладки)
+  schedule:
+    # Запускать каждый день в 08:00 UTC (для Москвы это 11:00)
+    - cron: '0 8 * * *' 
+  workflow_dispatch: # Позволяет запускать вручную из интерфейса GitHub Actions
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest # Выполняться на виртуальной машине Linux
+
+    steps:
+    - name: Checkout code # Шаг 1: Получаем код из репозитория
+      uses: actions/checkout@v4
+
+    - name: Set up Python # Шаг 2: Настраиваем Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies # Шаг 3: Устанавливаем необходимые библиотеки
+      run: pip install requests
+
+    - name: Run feed generation script # Шаг 4: Запускаем скрипт
+      run: python generate_feed.py
+      env:
+        # Передаем наши секреты в переменные окружения для скрипта
+        API_EMAIL: ${{ secrets.API_EMAIL }} 
+        API_KEY: ${{ secrets.API_KEY }}
+
+    - name: Commit and push updated feed # Шаг 5: Коммитим и отправляем сгенерированный файл обратно
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        # Файл, который нужно закоммитить
+        file_pattern: 'feed.xml' 
+        commit_message: "Automated: Update Industrial Market XML Feed"
+        # Имя пользователя/email для коммита
+        commit_user_name: 'github-actions[bot]'
+        commit_user_email: 'github-actions[bot]@users.noreply.github.com'
