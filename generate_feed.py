@@ -11,7 +11,13 @@ from datetime import datetime
 API_EMAIL = os.environ.get('API_EMAIL')
 API_KEY = os.environ.get('API_KEY')
 BASE_URL = "https://prompower.ru/api"
-PRODUCTS_API_URL = f"{BASE_URL}/prod/getProducts"
+
+# URL-ы для продуктов
+PRODUCTS_API = {
+    "Prompower": f"{BASE_URL}/prod/getProducts",
+    "Unimat": f"{BASE_URL}/prod/getUnimatProducts" # НОВЫЙ URL
+}
+
 CATEGORIES_API_URL = f"{BASE_URL}/categories"
 
 # ==============================================================================
@@ -21,6 +27,7 @@ def fetch_data(url, is_post=False, payload=None):
     """
     Выполняет HTTP-запрос (GET или POST) к API Prompower.
     """
+    # ... (код функции fetch_data остается без изменений, так как он универсален)
     headers = {"Content-Type": "application/json"}
     
     if is_post:
@@ -60,9 +67,38 @@ def fetch_data(url, is_post=False, payload=None):
         return None
 
 # ==============================================================================
+# ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ВСЕХ ПРОДУКТОВ
+# ==============================================================================
+def fetch_all_products():
+    """
+    Получает продукты Prompower и UniMAT и добавляет поле 'source_brand'.
+    """
+    all_products = []
+    
+    for brand_name, api_url in PRODUCTS_API.items():
+        print(f"Загрузка продуктов для бренда: {brand_name}...")
+        products_data = fetch_data(api_url, is_post=True)
+        
+        if not products_data:
+            print(f"Не удалось получить продукты для {brand_name}. Пропускаем.")
+            continue
+            
+        # Предполагаем, что продукты находятся в списке или в словаре под ключом "products"
+        product_list = products_data if isinstance(products_data, list) else products_data.get("products", [])
+        
+        # Добавляем поле для определения бренда/вендора при генерации XML
+        for product in product_list:
+            product['source_brand'] = brand_name
+        
+        all_products.extend(product_list)
+        print(f"Загружено {len(product_list)} продуктов для {brand_name}.")
+
+    return all_products
+
+# ==============================================================================
 # ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ XML-ФИДА
 # ==============================================================================
-def generate_xml_feed(products_data, categories_data):
+def generate_xml_feed(products_list, categories_data):
     """
     Преобразует полученные данные в XML-формат, требуемый Industrial.Market (YML).
     """
@@ -70,13 +106,12 @@ def generate_xml_feed(products_data, categories_data):
     root = ET.Element("yml_catalog", date=datetime.now().strftime("%Y-%m-%d %H:%M"))
     shop = ET.SubElement(root, "shop")
 
-    # УТОЧНЕНИЕ: Информация о магазине
-    ET.SubElement(shop, "name").text = "Prompower" # Требование: Prompower
-    ET.SubElement(shop, "company").text = "Мотрум" # Требование: Мотрум
-    # Требование: Полный URL вашего GitHub Pages
+    # Информация о магазине (остается без изменений)
+    ET.SubElement(shop, "name").text = "Prompower"
+    ET.SubElement(shop, "company").text = "Мотрум"
     ET.SubElement(shop, "url").text = "https://Ruslanchik63.github.io/prompower-feed/" 
 
-    # 2. Создание категорий (Categories)
+    # 2. Создание категорий (Categories) (остается без изменений)
     categories_element = ET.SubElement(shop, "categories")
     
     if isinstance(categories_data, list):
@@ -90,22 +125,20 @@ def generate_xml_feed(products_data, categories_data):
     # 3. Создание списка предложений (offers)
     offers = ET.SubElement(shop, "offers")
     
-    product_list = products_data if isinstance(products_data, list) else products_data.get("products", [])
-
-    for product in product_list:
+    for product in products_list: # Теперь итерируемся по ОБЪЕДИНЕННОМУ списку
         
-        # КОРРЕКТИРОВКА: offer id и vendorCode берем из "article"
-        offer_id_or_article = product.get("article") # Используем article в качестве уникального ID
+        offer_id_or_article = product.get("article")
         
         if not offer_id_or_article:
-            # Если article нет, то продукт пропустить не можем, но выведем предупреждение
-            print(f"Внимание: Продукт без 'article' пропущен.")
+            print(f"Внимание: Продукт без 'article' пропущен (Бренд: {product.get('source_brand', 'Неизвестен')}).")
             continue
             
         offer_id = str(offer_id_or_article)
         offer = ET.SubElement(offers, "offer", id=offer_id)
 
-        # vendorCode - также article
+        # 3.1. Обязательные поля и фиксированные значения
+        
+        # vendorCode (артикул)
         ET.SubElement(offer, "vendorCode").text = offer_id
 
         # Название продукта
@@ -114,53 +147,61 @@ def generate_xml_feed(products_data, categories_data):
         # ID категории
         ET.SubElement(offer, "categoryId").text = str(product.get("categoryId", "10")) 
         
-        # Цена (предполагаем ключ "price")
+        # Цена
         ET.SubElement(offer, "price").text = str(product.get("price", 0))
         
-        # НДС 7% (фиксированное значение)
+        # НДС 7%
         ET.SubElement(offer, "vat").text = "7" 
 
         # step-quantity всегда "1"
         ET.SubElement(offer, "step-quantity").text = "1"
         
-        # brand всегда "Prompower"
-        ET.SubElement(offer, "brand").text = "Prompower"
-        
-        # vendor всегда "Prompower"
-        ET.SubElement(offer, "vendor").text = "Prompower"
+        # ТРЕБОВАНИЕ 1: <preorder> всегда "1"
+        ET.SubElement(offer, "preorder").text = "1" 
 
-        # picture берем из "picture"
+        # 3.2. Настройка brand и vendor в зависимости от источника
+        source_brand = product.get('source_brand', 'Prompower') # По умолчанию Prompower
+        
+        if source_brand == "Unimat":
+            # ТРЕБОВАНИЕ 2 & 3: brand и vendor для UniMAT
+            brand_name = "Unimat"
+            vendor_name = "Unimat"
+        else:
+            # brand и vendor для Prompower (остается как было)
+            brand_name = "Prompower"
+            vendor_name = "Prompower"
+            
+        ET.SubElement(offer, "brand").text = brand_name
+        ET.SubElement(offer, "vendor").text = vendor_name
+
+        # 3.3. Остальные поля (остаются без изменений)
+
+        # picture
         picture_url = product.get("picture", product.get("image"))
         if picture_url:
              ET.SubElement(offer, "picture").text = picture_url 
 
-        # description берем из "description"
+        # description
         description = product.get("description")
         if description:
             ET.SubElement(offer, "description").text = description 
 
-        # warehouse name "Склад Самара Prompower и Unimat", значение из "instock"
+        # warehouse
         quantity = int(product.get("instock", 0))
-        
         warehouse = ET.SubElement(offer, "warehouse", name="Склад Самара Prompower и Unimat", unit="шт")
         warehouse.text = str(quantity)
         
-        # Под заказ (<preorder>)
-        preorder_status = "1" if quantity < 1 and product.get("can_preorder", True) else "0"
-        ET.SubElement(offer, "preorder").text = preorder_status
-
-        # param Вес из "weight"
+        # param Вес
         weight = product.get("weight")
         if weight:
              ET.SubElement(offer, "param", name="Вес", unit="кг").text = str(weight)
         
-        # param Габариты из height x width x depth
+        # param Габариты
         height = product.get("height")
         width = product.get("width")
         depth = product.get("depth")
         
         if height and width and depth:
-             # Формат: 940x230x520
              dimensions = f"{height}x{width}x{depth}"
              ET.SubElement(offer, "param", name="Габариты", unit="мм").text = dimensions
         
@@ -180,17 +221,17 @@ def generate_xml_feed(products_data, categories_data):
 # ОСНОВНАЯ ЛОГИКА ЗАПУСКА
 # ==============================================================================
 if __name__ == "__main__":
-    # 1. Получаем список категорий
+    # 1. Получаем список категорий (один раз для обоих брендов)
     categories = fetch_data(CATEGORIES_API_URL, is_post=False)
     if not categories:
         print("Не удалось получить категории. Завершение.")
         exit(1)
         
-    # 2. Получаем список товаров
-    products = fetch_data(PRODUCTS_API_URL, is_post=True)
-    if not products:
-        print("Не удалось получить продукты. Завершение.")
+    # 2. Получаем список всех товаров (Prompower + UniMAT)
+    all_products = fetch_all_products()
+    if not all_products:
+        print("Не удалось получить ни одного продукта (Prompower и UniMAT). Завершение.")
         exit(1)
         
     # 3. Генерируем XML
-    generate_xml_feed(products, categories)
+    generate_xml_feed(all_products, categories)
