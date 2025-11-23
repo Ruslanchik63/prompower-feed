@@ -48,10 +48,10 @@ def generate_xml_feed(data):
     shop = ET.SubElement(root, "shop")
 
     # Информация о магазине (замените на свои данные)
-    ET.SubElement(shop, "name").text = "Ваш Магазин Prompower"
-    ET.SubElement(shop, "company").text = "Ваша Компания"
+    ET.SubElement(shop, "name").text = "Prompower"
+    ET.SubElement(shop, "company").text = "Мотрум"
     # Это будет URL вашего GitHub Pages, который будет раздавать сам фид
-    ET.SubElement(shop, "url").text = "https://<имя_пользователя>.github.io/prompower-feed/" 
+    ET.SubElement(shop, "url").text = "https://ruslanchik63.github.io/prompower-feed/" 
 
     # 3.2. Создание категорий (Обычно берется из отдельного GET-запроса, 
     # но для простоты добавим одну фиктивную категорию)
