@@ -9,6 +9,9 @@ on:
     - cron: '0 8 * * *' 
   workflow_dispatch: # Позволяет запускать вручную из интерфейса GitHub Actions
 
+permissions:  # <-- ДОБАВИТЬ ЭТОТ БЛОК!
+  contents: write # Дает разрешение на запись (write) в содержимое репозитория (contents)
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest # Выполняться на виртуальной машине Linux
