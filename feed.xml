@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<yml_catalog date="2025-11-26 19:05">
+<yml_catalog date="2025-11-26 19:07">
   <shop>
     <name>Prompower</name>
     <company>Мотрум</company>
-    <url>https://Ruslanchik63.github.io/prompower-feed/</url>
+    <url>https://brilka.github.io/prompower-feed/</url>
     <categories>
       <category id="44">ПЛК (программируемые логические контроллеры)</category>
       <category id="45">ПЛК PMP20</category>
