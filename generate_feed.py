@@ -107,7 +107,7 @@ def generate_xml_feed(products_list, categories_data):
     # Информация о магазине
     ET.SubElement(shop, "name").text = "Prompower"
     ET.SubElement(shop, "company").text = "Мотрум"
-    ET.SubElement(shop, "url").text = "https://Ruslanchik63.github.io/prompower-feed/" 
+    ET.SubElement(shop, "url").text = "https://brilka.github.io/prompower-feed/" 
 
     # 2. Создание категорий (Categories)
     categories_element = ET.SubElement(shop, "categories")
