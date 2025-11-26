@@ -131,17 +131,19 @@ def generate_xml_feed(products_list, categories_data):
         offer_id_or_article = product.get("article")
         
         if not offer_id_or_article:
-            # print(f"Внимание: Продукт без 'article' пропущен.") # Можно раскомментировать для отладки
             continue
             
-        # --- ФИЛЬТРАЦИЯ ПО ОСТАТКАМ ---
-        # Получаем количество товара
-        quantity = int(product.get("instock", 0))
-        
-        # Если количество 0 или меньше, пропускаем итерацию цикла (не добавляем товар)
-        if quantity <= 0:
+        # --- ФИЛЬТРАЦИЯ ПО ЦЕНЕ ---
+        # Получаем цену и приводим к числу (float, т.к. могут быть копейки)
+        try:
+            price_value = float(product.get("price", 0))
+        except (ValueError, TypeError):
+            price_value = 0
+
+        # Если цена 0 или меньше, пропускаем итерацию цикла
+        if price_value <= 0:
             continue
-        # ------------------------------
+        # --------------------------
 
         offer_id = str(offer_id_or_article)
         offer = ET.SubElement(offers, "offer", id=offer_id)
@@ -167,7 +169,7 @@ def generate_xml_feed(products_list, categories_data):
         # step-quantity всегда "1"
         ET.SubElement(offer, "step-quantity").text = "1"
         
-        # preorder всегда "1" (для тех товаров, что попали в фид)
+        # preorder всегда "1"
         ET.SubElement(offer, "preorder").text = "1" 
 
         # 3.2. Настройка brand и vendor в зависимости от источника
@@ -195,8 +197,12 @@ def generate_xml_feed(products_list, categories_data):
         if description:
             ET.SubElement(offer, "description").text = description 
 
-        # warehouse - используем уже полученное значение quantity
-        warehouse = ET.SubElement(offer, "warehouse", name="Склад Самара Prompower и Unimat", unit="шт")
+        # warehouse
+        # Получаем остаток (даже если 0)
+        quantity = int(product.get("instock", 0))
+        
+        # ИЗМЕНЕНО НАЗВАНИЕ СКЛАДА
+        warehouse = ET.SubElement(offer, "warehouse", name="Главный склад Prompower и Unimat", unit="шт")
         warehouse.text = str(quantity)
         
         # param Вес
